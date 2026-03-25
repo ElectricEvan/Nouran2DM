@@ -14,8 +14,7 @@ def valid_transitions(matl_path: str, n_exc: int=0):
         BSE_path (str): Path to BSE folder
         verify (bool): If True, opens BSEFATBAND as a control to verify if this library's results matches with it, and prints a sample of results from random indices. \
             Defaults to False. 
-        n_exc (int): Singles out the data for a single excitonic bandgap energy where "1" is the lowest. Using negative numbers takes the range of that number of \
-            excitonic bangaps starting from the lowest value. Defaults to 1
+        n_exc (int): The number of excitonic bangaps starting from the lowest value. Defaults to 1
 
     Returns:
         (df_trans, verfify_ls) (tuple): Containing a DataFrame of all excitonic transitions' kpoint coordinates, valence/conduction band index, and complex BSE amplitude \
@@ -29,10 +28,10 @@ def valid_transitions(matl_path: str, n_exc: int=0):
         n_exc_trans = f_h5["results"]["linear_response"]["bse_fatbands"].shape[1]
 
         # Check if n_exc is within a valid range
-        if abs(n_exc) > exc_count:
-            raise ExcitonRangeError(f"{abs(n_exc)} n_exc is out of range for VASP calculations which only contains {exc_count} excitons.")
+        if n_exc > exc_count or n_exc < 0:
+            raise ExcitonRangeError(f"{n_exc} n_exc is out of range for VASP calculations which only contains {exc_count} excitons.")
 
-        fatbands = f_h5["results"]["linear_response"]["bse_fatbands"][0:abs(n_exc), :, :].reshape(-1,2)*kpoint_weight
+        fatbands = f_h5["results"]["linear_response"]["bse_fatbands"][0:n_exc, :, :].reshape(-1,2)*kpoint_weight
         band_index = f_h5["results"]["linear_response"]["bse_index"][0][:, :, :]
         kpoint_coords = f_h5["results"]["electron_eigenvalues"]["kpoint_coords"][:, :]
         band_energies = f_h5["results"]["electron_eigenvalues"]["eigenvalues"][0, :, 0:(band_index.shape[-1] + band_index.shape[-2])]
@@ -43,7 +42,7 @@ def valid_transitions(matl_path: str, n_exc: int=0):
     fbzkpts_col = []
     for i, kpoint in enumerate(kpoint_coords):
         fbzkpts_col += [kpoint] * (len(set(band_index[i,:,:].reshape(1, -1)[0])))
-    fbzkpts_col = fbzkpts_col * abs(n_exc)
+    fbzkpts_col = fbzkpts_col * n_exc
 
     ## Replicate the E_v E_c nbands_v nbands_c columns
     cond_tot = band_index.shape[2]
@@ -65,10 +64,10 @@ def valid_transitions(matl_path: str, n_exc: int=0):
                 val_ene_col += [band_energies[k, val_num_col[-1]-1]]
 
 
-    val_num_col *= abs(n_exc)
-    cond_num_col *= abs(n_exc)
-    val_ene_col *= abs(n_exc)
-    cond_ene_col *= abs(n_exc)
+    val_num_col *= n_exc
+    cond_num_col *= n_exc
+    val_ene_col *= n_exc
+    cond_ene_col *= n_exc
 
 
     ## Replicate the Abs(X_BSE)/W_k columns
@@ -87,11 +86,6 @@ def valid_transitions(matl_path: str, n_exc: int=0):
     df_test = np.concat((fbzkpts_col, val_ene_col, cond_ene_col, rel_exc_strength_col, val_num_col, cond_num_col, fatbands), axis=1)
     df_test = pl.from_numpy(df_test, schema={"Kx": pl.Float64, "Ky": pl.Float64, "Kz": pl.Float64, "E_v": pl.Float64, "E_c": pl.Float64, "Abs(X_BSE)/W_k": pl.Float64,
                                              "nbands_v": pl.UInt8, "nbands_c": pl.UInt8, "Re(X_BSE)": pl.Float64, "Im(X_BSE)": pl.Float64})
-    
-        
-    # Single out data for one exciton if the user selected the option
-    if n_exc > 0:
-        df_test = df_test[(n_exc-1)*n_exc_trans:n_exc*n_exc_trans]
 
     return df_test
     
@@ -113,11 +107,6 @@ def verify(matl_path: str, df_fatbands: pl.DataFrame, verbose: bool = False):
             if len(row_data) == 11:
                 df_ctrl.append(row_data)
                 i += 1
-
-            # elif len(row_data) == 5:
-            #     if len(exc_bandgaps2) == abs(n_exc):
-            #         break
-            #     exc_bandgaps2.append(row_data[2])
 
         df_ctrl = np.array(df_ctrl)
         df_ctrl = np.delete(df_ctrl, 9, axis=1)

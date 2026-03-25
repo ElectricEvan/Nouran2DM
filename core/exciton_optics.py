@@ -4,7 +4,7 @@ import polars as pl
 from core.exceptions import FBZKPTsMismatchError
 
 
-def exciton_optics(matl_path: str, df_fatbands: pl.DataFrame, mom_mat: np.ndarray, circ_light_polar: complex = 0):
+def exciton_optics(matl_path: str, df_fatbands: pl.DataFrame, mom_mat: np.ndarray, light_polar: list,np.array = 0):
     '''
     Calculates the BSE oscilator strength of an exciton 
 
@@ -69,28 +69,54 @@ def exciton_optics(matl_path: str, df_fatbands: pl.DataFrame, mom_mat: np.ndarra
     df_fatbands = df_fatbands.with_columns(pl.Series("rx", rxyz_col[:, 0]))
     df_fatbands = df_fatbands.with_columns(pl.Series("ry", rxyz_col[:, 1]))
     df_fatbands = df_fatbands.with_columns(pl.Series("rz", rxyz_col[:, 2]))
+    df_fatbands = df_fatbands.with_columns(pl.col(["Kx", "Ky", "Kz"]).round(6)) # Rounding kpoint coords to filter easier
+
 
     ## Calculate the BSE strengths
     bse_strengths_test = []
-    r_polar_strength = 0
-    l_polar_strength = 0
+    r_polar_strength = []
+    l_polar_strength = []
+    non_polar_strength = []
+    non_polar_strength_norm = []
+    planar_strength = []
+
+    # df_fatbands = df_fatbands.filter((pl.col("Kx") == 0.333333) & (pl.col("Ky") == 0.333333) & (pl.col("Kz") == 0))
+    v_min = df_fatbands["nbands_v"].min()
+    v_max = df_fatbands["nbands_v"].max()
+    c_min = df_fatbands["nbands_c"].min()
+    c_max = df_fatbands["nbands_c"].max()
+
     for i in range(n_exc):
-        bse_strength_a = []
         exc_dipole_vector = []
         for a in range(rxyz_col.shape[1]): # a = x, y, z
             exc_dipole_vector_a = 0
-            for v in range(df_fatbands["nbands_v"].min(), df_fatbands["nbands_v"].max()+1):
-                for c in range(df_fatbands["nbands_c"].min(), df_fatbands["nbands_c"].max()+1):
+            for v in range(v_min, v_max+1):
+                for c in range(c_min, c_max+1):
                     # Sum all c, v for all kpoints by filtering for c and v in the df
-                    df_fatbands_bands_filtered = df_fatbands[i*n_exc_trans:(i+1)*n_exc_trans].filter((pl.col("nbands_v") == v) & (pl.col("nbands_c") == c))[:, -4:].to_numpy()    # Sum Ks
-                    exc_dipole_vector_a += np.sum(df_fatbands_bands_filtered[:, 1+a] * (df_fatbands_bands_filtered[:, 0]))
+                    df_fatbands_bands_filtered = df_fatbands[i*n_exc_trans:(i+1)*n_exc_trans].filter((pl.col("nbands_v") == v) & (pl.col("nbands_c") == c))    # Sum Ks
+                    df_fatbands_bands_filtered = df_fatbands_bands_filtered[:, -4:].to_numpy()
+                    exc_dipole_vector_a += np.sum(df_fatbands_bands_filtered[:, 1+a] * (df_fatbands_bands_filtered[:, 0])) # matrix element * bse vector
 
             exc_dipole_vector.append(exc_dipole_vector_a)
-            if circ_light_polar:
-                polar_strength = circ_light_polar @ exc_dipole_vector
-                
+    
 
-        bse_strengths_test.append(float(sum([abs(comp**2) for comp in exc_dipole_vector])))
+        # bse_strengths_test.append(float(sum([abs(comp**2) for comp in exc_dipole_vector])))
+        # r_light_polar = np.array([1/2**0.5, 1j*1/2**0.5, 0])
+        # l_light_polar = np.array([1/2**0.5, -1j*1/2**0.5, 0])
+        # non_polar = np.array([1, 0, 0])
+        # non_polar_norm = np.array([1/3, 1/3, 1/3])
+        # planar = np.array([1/2**0.5, 1/2**0.5, 0])
+        # r_polar_strength.append(float(abs(r_light_polar @ np.array(exc_dipole_vector)**2)))
+        # l_polar_strength.append(float(abs(l_light_polar @ np.array(exc_dipole_vector)**2)))
+        # non_polar_strength.append(float(abs(non_polar @ np.array(exc_dipole_vector)**2)))
+        # non_polar_strength_norm.append(float(abs(non_polar_norm @ np.array(exc_dipole_vector)**2)))
+        # planar_strength.append((float(abs(planar @ np.array(exc_dipole_vector)**2))))
+
+    print(f"{r_polar_strength=}")
+    print(f"{l_polar_strength=}")
+    print(f"{non_polar_strength=}")
+    print(f"{non_polar_strength_norm=}")
+    print(f"{planar_strength=}")
 
     return bse_strengths_test
     
