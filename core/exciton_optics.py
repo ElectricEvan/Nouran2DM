@@ -4,7 +4,7 @@ import polars as pl
 from core.exceptions import FBZKPTsMismatchError
 
 
-def exciton_optics(matl_path: str, df_fatbands: pl.DataFrame, mom_mat: np.ndarray, light_polar: list,np.array = 0):
+def exciton_optics(matl_path: str, df_fatbands: pl.DataFrame, mom_mat: np.ndarray, light_polar: list = 0):
     '''
     Calculates the BSE oscilator strength of an exciton 
 

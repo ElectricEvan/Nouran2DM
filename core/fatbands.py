@@ -14,7 +14,7 @@ def valid_transitions(matl_path: str, n_exc: int=0):
         BSE_path (str): Path to BSE folder
         verify (bool): If True, opens BSEFATBAND as a control to verify if this library's results matches with it, and prints a sample of results from random indices. \
             Defaults to False. 
-        n_exc (int): The number of excitonic bangaps starting from the lowest value. Defaults to 1
+        n_exc (int): The number of lowest exciton energies  starting from the lowest value. Defaults to 1
 
     Returns:
         (df_trans, verfify_ls) (tuple): Containing a DataFrame of all excitonic transitions' kpoint coordinates, valence/conduction band index, and complex BSE amplitude \
