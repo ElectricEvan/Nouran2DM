@@ -16,10 +16,6 @@ class Fatbands:
         kpoint (Abs(X_BSE)/W_k), the valence and conduction band orbital numbers (nbands_v, nbands_c), and the complex amplitude of the e-h bound state (Re(X_BSE), Im(X_BSE)). 
         Although, this information is provided by BSEFATBAND, it loses precision from rounding values and may not always be included.
 
-        Args:
-            matl_path (str): Path to material folder
-            n_exc (int): The number of lowest exciton energies starting from the lowest value. Defaults to 1
-
         Returns:
             df_test (polars.DataFrame): Containing a DataFrame of all excitonic transitions' kpoint coordinates, valence/conduction band index, and complex BSE amplitude \
                 obtained from vaspout.h5
@@ -92,8 +88,17 @@ class Fatbands:
 
         return df_test
         
-
+    
     def verify(self, verbose: bool = False):
+        """
+        Reads the VASP's FATBANDS as a control to verify the this library's results to it
+
+        Args:
+            verbose (bool): Prints out a side-by-side comparison of the fatbands
+
+        Returns:
+            verify_ls (list): List of booleans indicating if the side-by-side comparison of fatbands from vaspout.h5 and this library are the same.
+        """
         # Obtain the control, if it exists
         n_trans = self.df.shape[0]
         df_ctrl = []

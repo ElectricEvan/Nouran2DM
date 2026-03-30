@@ -25,17 +25,9 @@ class Exciton_Optics:
             }
         }
 
-    def analyse_excitons(self, light_polar: list = 0):
+    def analyse_excitons(self):
         '''
-        Calculates the BSE oscilator strength of an exciton 
-
-        Args:
-            matl_path (str): Path to the material folder
-            df_excitons (polars.DataFrame): Polars DataFrame of all excitonic transitions for one or multiple excitons
-            mom_mat (numpy.ndarray): Numpy array of dipole moment matrix elements in the format of (nband_v, nband_c, kpt_coord, ispin, directional_element)
-        
-        Returns:
-            bse_strengths (list): A list of calculated BSE oscillator strengths
+        Calculates the exciton dipole vectors for every the lowest energy excitons, including conditions for K and K' valleys
         '''
         df_excitons = self.excitons.df
 
@@ -94,14 +86,6 @@ class Exciton_Optics:
 
 
         ## Calculate the BSE strengths
-        bse_strengths_test = []
-        if light_polar:
-            polar_strength = []
-        # l_polar_strength = []
-        # non_polar_strength = []
-        # non_polar_strength_norm = []
-        # planar_strength = []
-
         v_min = df_excitons["nbands_v"].min()
         v_max = df_excitons["nbands_v"].max()
         c_min = df_excitons["nbands_c"].min()
@@ -133,27 +117,8 @@ class Exciton_Optics:
             self.exc_dipole_vect_dict["Full k-Space"][i] = exc_dipole_vect
             self.exc_dipole_vect_dict["K-Valley"][i] = exc_dipole_vect_K
             self.exc_dipole_vect_dict["Kpr-Valley"][i] = exc_dipole_vect_Kpr
-            # bse_strengths_test.append(float(sum([abs(comp**2) for comp in exc_dipole_vect])))
-            # l_light_polar = np.array([1/2**0.5, -1j*1/2**0.5, 0])
-            # non_polar = np.array([1, 0, 0])
-            # non_polar_norm = np.array([1/3, 1/3, 1/3])
-            # planar = np.array([1/2**0.5, 1/2**0.5, 0])
-            # if light_polar:
-            #    polar_strength.append(float(abs(light_polar @ np.array(exc_dipole_vect)**2)))
-            # l_polar_strength.append(float(abs(l_light_polar @ np.array(exc_dipole_vect)**2)))
-            # non_polar_strength.append(float(abs(non_polar @ np.array(exc_dipole_vect)**2)))
-            # non_polar_strength_norm.append(float(abs(non_polar_norm @ np.array(exc_dipole_vect)**2)))
-            # planar_strength.append((float(abs(planar @ np.array(exc_dipole_vect)**2))))
 
-        # print(f"{r_polar_strength=}")
-        # print(f"{l_polar_strength=}")
-        # print(f"{non_polar_strength=}")
-        # print(f"{non_polar_strength_norm=}")
-        # print(f"{planar_strength=}")
-
-        print(f"\nBRIGHTNESSES OF {self.n_exc} LOWEST ENERGY EXCITONS: {bse_strengths_test}")
-        if light_polar:
-            print(f"\nBRIGHTNESSES OF {self.n_exc} LOWEST ENERGY EXCITONS: {self.brightnesses}")
+        print("Analysis Complete! Stored in: exc_dipole_vect_dict")
 
 
     def solve_brightness(self, light_polar: list = None):
@@ -180,13 +145,13 @@ class Exciton_Optics:
 
     def verify_brightness(self, verbose: bool = False):
         '''
-        Reads the BSE oscillator strength from vaspout.h5 as a control to verify the this library's results to it, and prints out the verification results.
+        Reads the BSE oscillator strength from vaspout.h5 as a control to verify the this library's results to it
 
         Args:
-            matl_path (str): Path to the material folder
-            bse_strengths (list): 
-        a list containing boolean expressions for if \
-        the calculated BSE oscillator strengths match the control. None if False.
+            verbose (bool): Prints out a side-by-side comparison of the BSE strengths
+
+        Returns:
+            verify_ls (list): List of booleans indicating if the side-by-side comparison of BSE strengths from vaspout.h5 and this library are the same.
         '''
         # Get relevant data
         with h5py.File(self.matl_path + "/4-BSE/vaspout.h5", "r") as f_h5:
