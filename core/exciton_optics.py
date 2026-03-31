@@ -1,13 +1,19 @@
 import h5py
 import numpy as np
 import polars as pl
-import json
 from core.exceptions import FBZKPTsMismatchError
 from core.fatbands import Fatbands
 from file_io.read_WAVEDER import get_mom_mat
 
 class Exciton_Optics:
-    def __init__(self, matl_path, n_exc):
+    """
+    Data class containing excitonic information of a 2D monolayer material
+
+    Params:
+        matl_path (str): Path to material folder
+        n_exc (int): The number of lowest exciton energies starting from the lowest value. Defaults to 1
+    """
+    def __init__(self, matl_path: str, n_exc: int = 1):
         self.matl_path = matl_path
         self.n_exc = n_exc
         self.excitons = Fatbands(matl_path=self.matl_path, n_exc=self.n_exc)
@@ -26,9 +32,9 @@ class Exciton_Optics:
         }
 
     def analyse_excitons(self):
-        '''
+        """
         Calculates the exciton dipole vectors for every the lowest energy excitons, including conditions for K and K' valleys
-        '''
+        """
         df_excitons = self.excitons.df
 
         # Get relevant data
@@ -67,7 +73,7 @@ class Exciton_Optics:
         ## Tabulate rxyz_col and S_col
         rxyz_col = []
         Sxyz_col = []
-        fbzkpts = pl.DataFrame(fbzkpts)
+        fbzkpts = pl.DataFrame(fbzkpts.round(6))
         j = 0
         for i in range(len(df_excitons[0:n_exc_trans])):
             if not np.array_equal(df_excitons[i, 0:3], fbzkpts[j]):
@@ -82,10 +88,8 @@ class Exciton_Optics:
         df_excitons = df_excitons.with_columns(pl.Series("rx", rxyz_col[:, 0]))
         df_excitons = df_excitons.with_columns(pl.Series("ry", rxyz_col[:, 1]))
         df_excitons = df_excitons.with_columns(pl.Series("rz", rxyz_col[:, 2]))
-        df_excitons = df_excitons.with_columns(pl.col(["Kx", "Ky", "Kz"]).round(6)) # Rounding kpoint coords to filter easier
 
-
-        ## Calculate the BSE strengths
+        ## Calculate the exciton dipole vectors
         v_min = df_excitons["nbands_v"].min()
         v_max = df_excitons["nbands_v"].max()
         c_min = df_excitons["nbands_c"].min()
@@ -121,10 +125,16 @@ class Exciton_Optics:
         print("Analysis Complete! Stored in: exc_dipole_vect_dict")
 
 
-    def solve_brightness(self, light_polar: list = None):
+    def solve_brightness(self, light_polar: tuple = None):
+        """
+        Solves the BSE oscillator strength using exc_dipole_vect_dict and stores them in instance variable brightnesses. Requires the method analyse_excitons to run first\
+              to generate the dictionary.
+
+        Args:
+            light_polar (tuple) = A list containing the vector components of light polarisation as [x, y, z] respectively.
+        """
         if light_polar:
             light_polar_mat = np.array(light_polar)
-            light_polar = str(light_polar).strip("[,]")
             self.brightnesses[light_polar] = {
                 "Full k-Space": {},
                 "K-Valley": {},
@@ -144,7 +154,7 @@ class Exciton_Optics:
         
 
     def verify_brightness(self, verbose: bool = False):
-        '''
+        """
         Reads the BSE oscillator strength from vaspout.h5 as a control to verify the this library's results to it
 
         Args:
@@ -152,7 +162,7 @@ class Exciton_Optics:
 
         Returns:
             verify_ls (list): List of booleans indicating if the side-by-side comparison of BSE strengths from vaspout.h5 and this library are the same.
-        '''
+        """
         # Get relevant data
         with h5py.File(self.matl_path + "/4-BSE/vaspout.h5", "r") as f_h5:
             bse_strengths_ctrl = f_h5["results"]["linear_response"]["opticaltransitions"][0:self.n_exc, 1]
