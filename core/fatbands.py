@@ -85,6 +85,7 @@ class Fatbands:
         df_test = np.concat((fbzkpts_col, val_ene_col, cond_ene_col, rel_exc_strength_col, val_num_col, cond_num_col, fatbands), axis=1)
         df_test = pl.from_numpy(df_test, schema={"Kx": pl.Float64, "Ky": pl.Float64, "Kz": pl.Float64, "E_v": pl.Float64, "E_c": pl.Float64, "Abs(X_BSE)/W_k": pl.Float64,
                                                 "nbands_v": pl.UInt8, "nbands_c": pl.UInt8, "Re(X_BSE)": pl.Float64, "Im(X_BSE)": pl.Float64})
+        df_test = df_test.with_columns(pl.col(["Kx", "Ky", "Kz"]).round(6)) # Rounding kpoint coords to filter easier
 
         return df_test
         

@@ -1,13 +1,22 @@
 import h5py
 import numpy as np
 import polars as pl
-import json
+import math
+import seaborn as sns
+import matplotlib.pyplot as plt
 from core.exceptions import FBZKPTsMismatchError
 from core.fatbands import Fatbands
 from file_io.read_WAVEDER import get_mom_mat
 
 class Exciton_Optics:
-    def __init__(self, matl_path, n_exc):
+    """
+    Data class containing excitonic information of a 2D monolayer material
+
+    Params:
+        matl_path (str): Path to material folder
+        n_exc (int): The number of lowest exciton energies starting from the lowest value. Defaults to 1
+    """
+    def __init__(self, matl_path: str, n_exc: int = 1):
         self.matl_path = matl_path
         self.n_exc = n_exc
         self.excitons = Fatbands(matl_path=self.matl_path, n_exc=self.n_exc)
@@ -24,11 +33,13 @@ class Exciton_Optics:
                 "Kpr-Valley": {}
             }
         }
+        with h5py.File(self.matl_path + "/4-BSE/vaspout.h5", "r") as f_h5:
+            self.exc_ene_ls = f_h5["results"]["linear_response"]["opticaltransitions"][0:n_exc, 0]
 
     def analyse_excitons(self):
-        '''
+        """
         Calculates the exciton dipole vectors for every the lowest energy excitons, including conditions for K and K' valleys
-        '''
+        """
         df_excitons = self.excitons.df
 
         # Get relevant data
@@ -67,7 +78,7 @@ class Exciton_Optics:
         ## Tabulate rxyz_col and S_col
         rxyz_col = []
         Sxyz_col = []
-        fbzkpts = pl.DataFrame(fbzkpts)
+        fbzkpts = pl.DataFrame(fbzkpts.round(6))
         j = 0
         for i in range(len(df_excitons[0:n_exc_trans])):
             if not np.array_equal(df_excitons[i, 0:3], fbzkpts[j]):
@@ -82,10 +93,8 @@ class Exciton_Optics:
         df_excitons = df_excitons.with_columns(pl.Series("rx", rxyz_col[:, 0]))
         df_excitons = df_excitons.with_columns(pl.Series("ry", rxyz_col[:, 1]))
         df_excitons = df_excitons.with_columns(pl.Series("rz", rxyz_col[:, 2]))
-        df_excitons = df_excitons.with_columns(pl.col(["Kx", "Ky", "Kz"]).round(6)) # Rounding kpoint coords to filter easier
 
-
-        ## Calculate the BSE strengths
+        ## Calculate the exciton dipole vectors
         v_min = df_excitons["nbands_v"].min()
         v_max = df_excitons["nbands_v"].max()
         c_min = df_excitons["nbands_c"].min()
@@ -121,10 +130,16 @@ class Exciton_Optics:
         print("Analysis Complete! Stored in: exc_dipole_vect_dict")
 
 
-    def solve_brightness(self, light_polar: list = None):
+    def solve_brightness(self, light_polar: tuple = None):
+        """
+        Solves the BSE oscillator strength using exc_dipole_vect_dict and stores them in instance variable brightnesses. Requires the method analyse_excitons to run first\
+              to generate the dictionary.
+
+        Args:
+            light_polar (tuple) = A tuple containing the vector components of light polarisation as [x, y, z] respectively.
+        """
         if light_polar:
             light_polar_mat = np.array(light_polar)
-            light_polar = str(light_polar).strip("[,]")
             self.brightnesses[light_polar] = {
                 "Full k-Space": {},
                 "K-Valley": {},
@@ -144,7 +159,7 @@ class Exciton_Optics:
         
 
     def verify_brightness(self, verbose: bool = False):
-        '''
+        """
         Reads the BSE oscillator strength from vaspout.h5 as a control to verify the this library's results to it
 
         Args:
@@ -152,7 +167,7 @@ class Exciton_Optics:
 
         Returns:
             verify_ls (list): List of booleans indicating if the side-by-side comparison of BSE strengths from vaspout.h5 and this library are the same.
-        '''
+        """
         # Get relevant data
         with h5py.File(self.matl_path + "/4-BSE/vaspout.h5", "r") as f_h5:
             bse_strengths_ctrl = f_h5["results"]["linear_response"]["opticaltransitions"][0:self.n_exc, 1]
@@ -168,3 +183,43 @@ class Exciton_Optics:
 
         return verify_ls
     
+    def brightness_plot(self, filename: str = "", light_polar: tuple = "Unpolarised"):
+        """
+        Creates a brightness density plot with kernel density estimate.
+
+        Args:
+            filename (str): File name of the plot to be exported (in PNG)
+            light_polar (tuple): A tuple containing the vector components of light polarisation as [x, y, z] respectively. Defaults to Unpolarised.
+        """
+        # Generate sample data
+        delta_ene_ls = [float(exc_ene-self.exc_ene_ls[0]) for exc_ene in self.exc_ene_ls]
+        boltzmann_fn = [math.exp(-delta_ene/(1.380649e-23*298.15/1.60217663e-19)) for delta_ene in delta_ene_ls]
+
+        k_spaces = ["Full k-Space", "K-Valley", "Kpr-Valley"]
+
+        full_kde_data = {"exc_ene": [], "k-space":[]}
+        for k_space in k_spaces:
+            brightness = [self.brightnesses[light_polar][k_space][i]*boltzmann_fn[i] for i in range(self.n_exc)]
+            kde_data = []
+            for i, exc_ene in enumerate(self.exc_ene_ls):
+                kde_data += int(round(brightness[i]*1000, 0))*[exc_ene]
+
+            low_lim = math.floor(10*self.exc_ene_ls[0])/10
+            high_lim = round(self.exc_ene_ls[-1], 1)
+            kde_data += [low_lim-0.01,high_lim+0.01]    # Add 0 density lines
+            full_kde_data["exc_ene"] += kde_data
+            full_kde_data["k-space"] += len(kde_data)*[k_space]
+
+        # Create KDE plot (smeared histogram)
+        # Adjust 'bw_adjust' to change the smearing intensity
+        g = sns.displot(data=pl.DataFrame(full_kde_data), x="exc_ene", bw_adjust=round(high_lim-low_lim,2)*10, kind="kde", height=50, aspect=1.2, linewidth=10, hue="k-space")
+        plt.xlabel("Exciton Energy (eV)", fontsize=140)
+        plt.ylabel("Brightness Density (a.u)", fontsize=140)
+        plt.xticks(fontsize=140)
+        plt.yticks(fontsize=140)
+        sns.move_legend(g, "upper right",fontsize=140, title_fontsize=140)
+        plt.xlim(low_lim, high_lim)
+        plt.tight_layout()
+        if not filename:
+            filename = f"{self.matl_path.split("/")[-1]}-{light_polar}"
+        plt.savefig(f"{filename}-KDE.png")
