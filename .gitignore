@@ -1,0 +1,6 @@
+core/__pycache__
+file_io/__pycache__
+.venv
+4-BSE-Tree.txt
+*.png
+*.pkl
