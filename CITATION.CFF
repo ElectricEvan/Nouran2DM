@@ -1,8 +1,8 @@
-cff-version: 1.2.0
+cff-version: 1.2.1
 message: "If you use this software, please cite it as below."
 authors:
   - family-names: Tanudjaja
     given-names: Evan
 title: "Predicting Brightness of 2D Semiconductor Materials by Quantifying Bright and Dark Excitons"
 version: 1.0.0
-date-released: 2021-08-11
+date-released: 2026-04-22
