@@ -147,15 +147,14 @@ class Exciton_Optics:
             }
 
         for i in range(self.n_exc):
-            if len(self.brightnesses["Unpolarised"]["Full k-Space"]) < self.n_exc:
+            if light_polar:
+                self.brightnesses[light_polar]["Full k-Space"][i] = float(abs(light_polar_mat @ np.array(self.exc_dipole_vect_dict["Full k-Space"][i]))**2)
+                self.brightnesses[light_polar]["K-Valley"][i] = float(abs(light_polar_mat @ np.array(self.exc_dipole_vect_dict["K-Valley"][i]))**2)
+                self.brightnesses[light_polar]["Kpr-Valley"][i] = float(abs(light_polar_mat @ np.array(self.exc_dipole_vect_dict["Kpr-Valley"][i]))**2)
+            else:
                 self.brightnesses["Unpolarised"]["Full k-Space"][i] = float(sum([abs(comp**2) for comp in self.exc_dipole_vect_dict["Full k-Space"][i]]))
                 self.brightnesses["Unpolarised"]["K-Valley"][i] = float(sum([abs(comp**2) for comp in self.exc_dipole_vect_dict["K-Valley"][i]]))
                 self.brightnesses["Unpolarised"]["Kpr-Valley"][i] = float(sum([abs(comp**2) for comp in self.exc_dipole_vect_dict["Kpr-Valley"][i]]))
-
-            if light_polar:
-                self.brightnesses[light_polar]["Full k-Space"][i] = float(abs(light_polar_mat @ np.array(self.exc_dipole_vect_dict["Full k-Space"][i])**2))
-                self.brightnesses[light_polar]["K-Valley"][i] = float(abs(light_polar_mat @ np.array(self.exc_dipole_vect_dict["K-Valley"][i])**2))
-                self.brightnesses[light_polar]["Kpr-Valley"][i] = float(abs(light_polar_mat @ np.array(self.exc_dipole_vect_dict["Kpr-Valley"][i])**2))
         
 
     def verify_brightness(self, verbose: bool = False):
