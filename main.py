@@ -68,8 +68,9 @@ def main():
     with open("MoTe2.pkl", "rb") as f:
         MoTe2 = pickle.load(f)
     
+    MoTe2.brightness_plot()
     MoTe2.brightness_plot(light_polar=(0.7071067811865475, -0.7071067811865475j, 0))
-    print()
+    MoTe2.brightness_plot(light_polar=(0.7071067811865475, 0.7071067811865475j, 0))
     
 
 if __name__ == "__main__":
